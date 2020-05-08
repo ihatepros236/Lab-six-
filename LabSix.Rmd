@@ -1,0 +1,167 @@
+---
+title: "STAT 341/641 Lab: Week Six"
+author: "Muhammad Ahmad"
+date: "3/5/2020"
+output: html_document
+---
+---
+
+**STAT 341/641:**        Intro to EDA and Statistical Computing  
+**Lab #5:**              Rejection Sampling and the Bootstrap  
+**Teaching Assistant:**  "Fill in the name of your TA"
+
+* * *
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Directions:**  You will use the lab time to complete this assignment.
+
+* * *
+
+#**Task: Practice rejection sampling and the bootstrap**  
+
+
+##1: Suppose we would like to obtain samples from a probability density that satisfies
+$$f(x) \propto \exp\left\{-x^2/2 \right\}(\sin(6x)^2 + 3\cos(x)^2).$$
+The symbol $\propto$ indicates that the density is proportional to $\exp\left\{-x^2/2 \right\}(\sin(6x)^2 + 3\cos(x)^2)$.  In general, two quantities $a$ and $b$ are proportional if $a = kb$ where $k$ is called the constant of proportionality.  For probability distributions, we frequently know the numerator, but not the denominator.  
+
+Anyway, find a number $M \geq 1$ such that the envelope condition holds for proposal distribution $g(x) = N(0,1).$  Recall the envelope condition is $f(x) \leq M g(x)$ for all $x$.  
+
+As a hint, look at the code chunk below.  Try looping over values for $M$.  Choose the smallest value of $M$ that satisfies the condition. 
+
+
+**Solution:**
+```{r}
+set.seed(641)
+
+myseq <- seq(from = -4, to = 4, by = .1)
+f <- function(x){
+  exp(-x^2/2)*(sin(6*x)^2 + 3*cos(x)^2)
+}
+samples<-NULL
+M <- runif(1,1,10)
+N<-1
+
+while(N<50){
+  
+if(all(f(myseq) < (M * dnorm(myseq) ))){
+samples<- rbind(samples,myseq)
+}
+N<- N+1
+}
+```
+##2: Write a loop to obtain 1,000 samples from $f(\cdot)$.  How many iterations does it take to get 1,000 samples?  
+Edit the code chunk supplied below to accomplish this.
+
+**Solution:**  
+```{r}
+set.seed(641)
+
+mynum <- 0
+N <- 1000
+fsamples <- NULL
+M <- runif(1,1,10) 
+
+while(mynum < N){
+  ## sample from the proposal
+  mysamp <- rnorm(1)
+  
+  ## compute r
+ myr = (f(mysamp))/(M * dnorm(mysamp))
+ 
+ if( (1-myr)>=0 & (1-myr)<=1){
+  
+if(sample(c(0,1),1,prob = c(1-myr,myr)) == 1){
+    ## record the sample
+   fsamples <- c(fsamples, mysamp)
+    mynum <- mynum + 1
+  }
+ }  
+}
+
+
+```
+
+##3: Plot histograms of 1,000 samples from $Mg(x)$ and $f(x)$.  Use pastel colors with a low alpha (high level of transparency) in order to overlay the two distributions on the same plot.
+
+
+**Solution:**  
+```{r}
+
+hist((M * rnorm(1000)),col=adjustcolor("green",alpha.f
+= .15), xlab="X",main= "Sampling")
+hist(fsamples,add = T,
+col=adjustcolor("purple",alpha.f = .35))
+
+hist((M * dnorm(mysamp)),col=adjustcolor("green",alpha.f
+= .15), xlab="X",main= "Sampling")
+hist(fsamples,add = T,
+col=adjustcolor("purple",alpha.f = .35))
+
+```
+
+##4: Load the rousseeuw_outlier_set1.csv data set.  You are going to edit the code chunk below to create some interesting plots. For each bootstrap replication, record whether the first row of the data set has been chosen.  Then make two different plots of the regression lines:  one for all bootstrap samples with the first row and another for all bootstrap samples without the first row.  How many of the 1,000 bootstrap replications contain the first row?
+
+**Solution:**  
+```{r, warning=FALSE}
+library(tidyverse)
+set.seed(641)
+setwd("C:/Users/Muhammad Ahmad/Downloads")
+set1<-read_csv("rousseeuw_outlier_set1.csv")
+
+R <- 1000
+mybetas <- matrix(0,R,2)
+count1<-0
+for (j in c(1:R)){
+  ## sample indices to make bootstrap sample
+ inds <- sample(c(1:nrow(set1)),size = nrow(set1),replace = T)
+  ## compute the regression
+  res <- lm(Y ~ X, data = set1)
+  ## fill in the betas
+ mybetas[j,] <- coef(res)
+ mysamp_score<-set1[inds,]
+ if(inds==1){
+ count1<-count1+1
+ }
+}
+
+"#number of time sample included 1st row"
+print(count1)
+#22 times
+
+
+
+betas <- colMeans(mybetas)
+mycols <- rainbow(R,alpha = .20)
+plot(set1,typ="n",xlab="input",ylab="output",main = "Regression with Outliers")
+points(set1,pch = 20, col="blue")
+abline(res, col = "red")
+for (j in c(1:R)){
+  abline(a = mybetas[j,1], b = mybetas[j,2], col=mycols[j], lwd = .5)
+}
+# Bootstrap 95% CI for R-Squared
+library(boot)
+# function to obtain R-Squared from the data
+rsq <- function(formula, data, indices) {
+  d1 <- data[indices,] # allows boot to select sample
+  fit <- lm(formula, data=d1)
+  return(summary(fit)$r.square)
+}
+# bootstrapping with 1000 replications
+results <- boot(data=set1, statistic=rsq,
+   R=1000, formula=Y~X)
+
+# view results
+results
+plot(results)
+
+# get 95% confidence interval
+boot.ci(results, type="bca")
+
+
+```
+
+
+* * *
